@@ -2,22 +2,13 @@ const compileUtil = {
     // 解析 v-text="msg" v-text="person.fav" 两种情况
     getVal(expr, vm) {
         return expr.split('.').reduce((data, currentVal) => {
-            // console.log('dada[currentVal]', [currentVal]);
+            console.log(data[currentVal]);
             return data[currentVal]
         }, vm.$data)
     },
     text(node, expr, vm) {
         // expr ==> msg
-        // 对expr进行处理
-        let value;
-        if (expr.indexOf('{{') !== -1) {
-            value = expr.replace(/\{\{(.+?)\}\}/g, (...args) => {
-                // console.log(args);
-                return this.getVal(args[1], vm)
-            })
-        } else {
-            value = this.getVal(expr, vm)
-        }
+        const value = this.getVal(expr, vm)
         this.updater.textUpdater(node, value)
     },
     html(node, expr, vm) {
@@ -102,10 +93,7 @@ class Compile {
                         // 继续分割 on:click这些
                     const [dirName, eventName] = dirctive.split(':')
                         // dirName ==> on   eventName ==> click  根据不同的处理不同的事情
-                        // 更新数据 数据驱动视图
                     compileUtil[dirName](node, value, this.vm, eventName)
-                        // 删除有指令的标签属性
-                    node.removeAttribute('v-' + dirctive)
                 }
             })
         }
@@ -115,12 +103,7 @@ class Compile {
         }
         // 编译文本
     compilerText(node) {
-            // node.textContent 
-            if (/\{\{.+?}\}/.test(node.textContent)) {
-                // 取到的是 {{person.name}} 这类
-                // console.log(node.textContent);
-                compileUtil['text'](node, node.textContent, this.vm)
-            }
+
         }
         // 确定元素节点的方法
     isElementNode(node) {
