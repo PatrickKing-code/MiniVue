@@ -16,6 +16,7 @@
             <li>2</li>
             <li>3</li>
         </ul>
+        <div v-text="person.fav"></div>
         <div v-text="msg"></div>
         <div v-html="htmlStr"></div>
         <input type="text" v-model="msg">
@@ -31,6 +32,7 @@
                 age: 18,
                 fav: '球球'
             },
+            htmlStr: '<span style="color: blue">htmlStr</span>',
             msg: 'vue'
         }
     })

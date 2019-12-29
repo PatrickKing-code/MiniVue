@@ -1,3 +1,48 @@
+const compileUtil = {
+    // 解析 v-text="msg" v-text="person.fav" 两种情况
+    getVal(expr, vm) {
+        return expr.split('.').reduce((data, currentVal) => {
+            // console.log('dada[currentVal]', [currentVal]);
+            return data[currentVal]
+        }, vm.$data)
+    },
+    text(node, expr, vm) {
+        // expr ==> msg
+        // 对expr进行处理
+        let value;
+        if (expr.indexOf('{{') !== -1) {
+            value = expr.replace(/\{\{(.+?)\}\}/g, (...args) => {
+                // console.log(args);
+                return this.getVal(args[1], vm)
+            })
+        } else {
+            value = this.getVal(expr, vm)
+        }
+        this.updater.textUpdater(node, value)
+    },
+    html(node, expr, vm) {
+        const value = this.getVal(expr, vm)
+        this.updater.htmlUpdater(node, value)
+    },
+    model(node, expr, vm) {
+        const value = this.getVal(expr, vm)
+        this.updater.modelUpdater(node, value)
+    },
+    on(node, expr, vm, eventName) {
+
+    },
+    updater: {
+        textUpdater(node, value) {
+            node.textContent = value
+        },
+        modelUpdater(node, value) {
+            node.value = value
+        },
+        htmlUpdater(node, value) {
+            node.innerHTML = value
+        }
+    }
+}
 class MVue {
     constructor(options) {
         this.$el = options.el
@@ -30,15 +75,52 @@ class Compile {
                 // 之后就看他为什么节点 然后根据不同的节点进行编译
                 if (this.isElementNode(child)) {
                     // 元素节点 编译
-                    console.log('元素节点', child);
+                    // console.log('元素节点', child);
+                    this.compilerElement(child)
                 } else {
                     // 文本节点 编译
-                    console.log('文本节点', child);
+                    // console.log('文本节点', child);
+                    this.compilerText(child)
                 }
                 if (child.childNodes && child.childNodes.length) {
                     this.compiler(child)
                 }
             })
+        }
+        // 编译元素
+    compilerElement(node) {
+            // node.attributes 取到所有元素节点上面的属性  比如 v-text  v-html  v-model这些 取到的数据类型是nodemap
+            [...node.attributes].forEach(attr => {
+                // console.log(attr);
+                // 得到的attr  ===> v-text="msg" 拥有name value 
+                // name => v-text
+                // value=> msg 
+                const { name, value } = attr
+                // 如果他是一个指令 也就是说 他是 v-text  v-html  v-model
+                if (this.isDirective(name)) {
+                    const [, dirctive] = name.split('-') // 第一个不要 要第二个 也就是取到 text html model on:click 
+                        // 继续分割 on:click这些
+                    const [dirName, eventName] = dirctive.split(':')
+                        // dirName ==> on   eventName ==> click  根据不同的处理不同的事情
+                        // 更新数据 数据驱动视图
+                    compileUtil[dirName](node, value, this.vm, eventName)
+                        // 删除有指令的标签属性
+                    node.removeAttribute('v-' + dirctive)
+                }
+            })
+        }
+        //
+    isDirective(attrName) {
+            return attrName.startsWith('v-')
+        }
+        // 编译文本
+    compilerText(node) {
+            // node.textContent 
+            if (/\{\{.+?}\}/.test(node.textContent)) {
+                // 取到的是 {{person.name}} 这类
+                // console.log(node.textContent);
+                compileUtil['text'](node, node.textContent, this.vm)
+            }
         }
         // 确定元素节点的方法
     isElementNode(node) {
