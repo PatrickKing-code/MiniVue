@@ -1,41 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Document</title>
-</head>
-
-<body>
+  </head>
+  <body>
     <div id="app">
-        <h2>{{person.name}}</h2>
-        <h2>{{person.age}}</h2>
-        <h3>{{person.fav}}</h3>
-        <ul>
-            <li>1</li>
-            <li>2</li>
-            <li>3</li>
-        </ul>
-        <div v-text="person.fav"></div>
-        <div v-text="msg"></div>
-        <div v-html="htmlStr"></div>
-        <input type="text" v-model="msg">
+      <h2>{{person.name}} -- {{person.age}}</h2>
+      <h3>{{person.fav}}</h3>
+      <ul>
+        <li>1</li>
+        <li>2</li>
+        <li>3</li>
+        <li>4</li>
+      </ul>
+      <h3>{{msg}}</h3>
+      <div v-text="person.fav"></div>
+      <div v-html="htmlStr"></div>
+      <input type="text" v-model="msg" />
+      <button v-on:click="handleClick">v-on</button>
+      <button @click="handleClick">@</button>
     </div>
-</body>
-<script src="./MVue.js"></script>
-<script>
+  </body>
+  <script src="./Observer.js"></script>
+  <script src="./MVue.js"></script>
+  <script>
     let vm = new MVue({
-        el: "#app",
-        data: {
-            person: {
-                name: 'Patrick',
-                age: 18,
-                fav: '球球'
-            },
-            htmlStr: '<span style="color: blue">htmlStr</span>',
-            msg: 'vue'
+      el: "#app",
+      data() {
+        return {
+          person: {
+            name: "張三",
+            age: "38",
+            fav: "姑娘"
+          },
+          msg: "vue是一个令人发指的框架 react更是 小程序更是",
+          htmlStr: "<h1>这是一个简易的vue html</h1>"
         }
+      },
+      methods: {
+        handleClick() {
+          this.msg = "其实我是爱vue的~"
+        }
+      }
     })
-</script>
-
+  </script>
 </html>

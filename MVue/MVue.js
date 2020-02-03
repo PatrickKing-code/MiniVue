@@ -1,120 +1,189 @@
-const compileUtil = {
-    // 解析 v-text="msg" v-text="person.fav" 两种情况
-    getVal(expr, vm) {
-        return expr.split('.').reduce((data, currentVal) => {
-            console.log(data[currentVal]);
-            return data[currentVal]
-        }, vm.$data)
-    },
-    text(node, expr, vm) {
-        // expr ==> msg
-        const value = this.getVal(expr, vm)
-        this.updater.textUpdater(node, value)
-    },
-    html(node, expr, vm) {
-        const value = this.getVal(expr, vm)
-        this.updater.htmlUpdater(node, value)
-    },
-    model(node, expr, vm) {
-        const value = this.getVal(expr, vm)
-        this.updater.modelUpdater(node, value)
-    },
-    on(node, expr, vm, eventName) {
-
-    },
-    updater: {
-        textUpdater(node, value) {
-            node.textContent = value
-        },
-        modelUpdater(node, value) {
-            node.value = value
-        },
-        htmlUpdater(node, value) {
-            node.innerHTML = value
-        }
-    }
-}
 class MVue {
-    constructor(options) {
-        this.$el = options.el
-        this.$data = options.data
-        this.options = options
-        if (this.$el) {
-            // 1.实现一个数据的观察者
-            // 2.实现一个指令的解析器
-            new Compile(this.$el, this)
-        }
+  constructor($options) {
+    this.$options = $options
+    this.$data = $options.data()
+    this.$el = $options.el
+    this.$methods = $options.methods
+    if (this.$el) {
+      // 1. 观察者 observer()
+      new Observer(this.$data)
+      // 2. 指令解析器
+      new Compile(this.$el, this)
+      // 3. 实现代理的方法 this.xxx直接访问到 vm.$data.xxx
+      this.proxyData(this.$data)
     }
+  }
+  proxyData(data) {
+    for (const key in data) {
+      Object.defineProperty(this, key, {
+        get() {
+          return data[key]
+        },
+        set(newValue) {
+          data[key] = newValue
+        }
+      })
+    }
+  }
 }
-// 编译 解析器
-class Compile {
-    constructor(el, vm) {
-        // 判断el是否是一个元素节点 
-        this.el = this.isElementNode(el) ? el : document.querySelector(el)
-        this.vm = vm
-            // 1. 获取文档碎片对象 放入内存当中 减少页面的回流和重绘
-        const fragment = this.node2Fragment(this.el)
-            // 2. 编译模板
-        this.compiler(fragment)
-            // 3. 把所有fragment的元素节点都追加到根元素
-        this.el.appendChild(fragment)
-    }
-    compiler(fragment) {
-            // 1). 获取到fragment里的所有节点
-            // fragment.childNodes 这个方法就是获取到下面的所有子节点
-            [...fragment.childNodes].forEach(child => {
-                // 之后就看他为什么节点 然后根据不同的节点进行编译
-                if (this.isElementNode(child)) {
-                    // 元素节点 编译
-                    // console.log('元素节点', child);
-                    this.compilerElement(child)
-                } else {
-                    // 文本节点 编译
-                    // console.log('文本节点', child);
-                    this.compilerText(child)
-                }
-                if (child.childNodes && child.childNodes.length) {
-                    this.compiler(child)
-                }
-            })
-        }
-        // 编译元素
-    compilerElement(node) {
-            // node.attributes 取到所有元素节点上面的属性  比如 v-text  v-html  v-model这些 取到的数据类型是nodemap
-            [...node.attributes].forEach(attr => {
-                // console.log(attr);
-                // 得到的attr  ===> v-text="msg" 拥有name value 
-                // name => v-text
-                // value=> msg 
-                const { name, value } = attr
-                // 如果他是一个指令 也就是说 他是 v-text  v-html  v-model
-                if (this.isDirective(name)) {
-                    const [, dirctive] = name.split('-') // 第一个不要 要第二个 也就是取到 text html model on:click 
-                        // 继续分割 on:click这些
-                    const [dirName, eventName] = dirctive.split(':')
-                        // dirName ==> on   eventName ==> click  根据不同的处理不同的事情
-                    compileUtil[dirName](node, value, this.vm, eventName)
-                }
-            })
-        }
-        //
-    isDirective(attrName) {
-            return attrName.startsWith('v-')
-        }
-        // 编译文本
-    compilerText(node) {
 
-        }
-        // 确定元素节点的方法
-    isElementNode(node) {
-            return node.nodeType === 1 // 元素节点对象
-        }
-        // 把#app下所有的子节点都放入到内存中
-    node2Fragment(node) {
-        const f = document.createDocumentFragment()
-        while (node.firstChild) {
-            f.appendChild(node.firstChild)
-        }
-        return f
+class Compile {
+  constructor(el, vm) {
+    this.el = this.isElementNode(el) ? el : document.querySelector(el)
+    this.vm = vm
+    // 1. 获取文档碎片对象
+    const fragment = this.node2fragment(this.el)
+    // console.log("fragment", fragment)
+    // 2. 编译模板
+    this.compile(fragment)
+    // 3. fragment追加到根节点 el上
+    this.el.appendChild(fragment)
+  }
+  // 元素节点
+  isElementNode(node) {
+    return node.nodeType === 1
+  }
+  // 创建文档碎片
+  node2fragment(node) {
+    // 创建文档碎片
+    let fragment = document.createDocumentFragment()
+    let firstChild
+    while ((firstChild = node.firstChild)) {
+      fragment.appendChild(firstChild)
     }
+    return fragment
+  }
+  isElementNode(node) {
+    return node.nodeType === 1
+  }
+  // 看属性是否为指令 也就是以 v-开头的
+  isDirective(attrName) {
+    return attrName.startsWith("v-")
+  }
+
+  // 看是否@
+  isEventName(attrName) {
+    return attrName.startsWith("@")
+  }
+  // 编译元素节点
+  compileElement(node) {
+    const attrs = node.attributes
+    Array.from(attrs).forEach(attr => {
+      const { name, value } = attr
+      // attr ===>  v-text="msg"  v-model="msg"  type="text"
+      if (this.isDirective(name)) {
+        // console.log("指令", name)  v-text    v-model   v-html
+        const [, directive] = name.split("-") // html  model  html
+        // v-on="fn"
+        const [dirName, eventName] = directive.split(":") //
+        // 数据驱动视图 更新数据
+        compileUtil[dirName](node, value, this.vm, eventName)
+        // 删除有指令标签的属性
+        node.removeAttribute("v-" + directive)
+      } else if (this.isEventName(name)) {
+        // @click="fn"
+        let [, eventName] = name.split("@")
+        compileUtil["on"](node, value, this.vm, eventName)
+      }
+    })
+  }
+  compileText(node) {
+    //
+    const content = node.textContent
+    if (/\{\{(.+?)\}\}/.test(content)) {
+      // console.log(content)
+      compileUtil["text"](node, content, this.vm)
+    }
+  }
+  // 编译文本节点
+  compile(fragment) {
+    // 获取子节点
+    const childNodes = fragment.childNodes
+    Array.from(childNodes).forEach(child => {
+      if (this.isElementNode(child)) {
+        // console.log("元素节点", child)
+        // 编译元素节点
+        this.compileElement(child)
+      } else {
+        // console.log("文本节点", child)
+        // 编译文本节点
+        this.compileText(child)
+      }
+
+      // 深层次递归 防止有子元素
+      if (child.childNodes && child.childNodes.length) {
+        this.compile(child)
+      }
+    })
+  }
+}
+
+const compileUtil = {
+  getValue(expr, vm) {
+    return expr.split(".").reduce((data, current) => {
+      return data[current]
+    }, vm.$data)
+  },
+  setValue(expr, vm, inputValue) {
+    return expr.split(".").reduce((data, current) => {
+      data[current] = inputValue
+    }, vm.$data)
+  },
+  getContentVal(expr, vm) {
+    return expr.replace(/\{\{(.+?)\}\}/g, (...args) => {
+      return this.getValue(args[1], vm)
+    })
+  },
+  text(node, expr, vm) {
+    //   <div v-text="msg"></div>  ===> expr : msg
+    // 如果 msg是person.name 的话就不好用了
+    let value
+    if (expr.indexOf("{{") !== -1) {
+      // {{person.name}}  -- {{person.age}}
+      value = expr.replace(/\{\{(.+?)\}\}/g, (...args) => {
+        new Watcher(vm, args[1], newValue => {
+          this.updater.textUpdater(node, this.getContentVal(expr, vm))
+        })
+        // console.log(args[1]) // 取到的是 person.name   person.fav    msg
+        return this.getValue(args[1], vm)
+      })
+    } else {
+      value = this.getValue(expr, vm)
+    }
+    this.updater.textUpdater(node, value)
+  },
+  model(node, expr, vm) {
+    const value = this.getValue(expr, vm)
+    // 绑定观察者 更新函数 数据驱动视图
+    new Watcher(vm, expr, newValue => {
+      this.updater.modelUpdater(node, newValue)
+    })
+    // 绑定监听事件  视图驱动数据
+    node.addEventListener("input", e => {
+      this.setValue(expr, vm, e.target.value)
+    })
+    this.updater.modelUpdater(node, value)
+  },
+  html(node, expr, vm) {
+    const value = this.getValue(expr, vm)
+    new Watcher(vm, expr, newValue => {
+      this.updater.htmlUpdater(node, value)
+    })
+    this.updater.htmlUpdater(node, value)
+  },
+  on(node, expr, vm, eventName) {
+    let fn = vm.$options.methods && vm.$options.methods[expr]
+    node.addEventListener(eventName, fn.bind(vm), false)
+  },
+  updater: {
+    textUpdater(node, value) {
+      node.textContent = value
+    },
+    htmlUpdater(node, value) {
+      node.innerHTML = value
+    },
+    modelUpdater(node, value) {
+      node.value = value
+    }
+  }
 }
